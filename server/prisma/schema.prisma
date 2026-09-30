@@ -1,0 +1,175 @@
+// Database schema for the Tenant Management System (TMS).
+// Run `npx prisma migrate dev` after editing this file.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ---------- Enums ----------
+
+enum Role {
+  TENANT
+  LANDLORD
+}
+
+enum Category {
+  PLUMBING
+  ELECTRICAL
+  STRUCTURAL
+  SECURITY
+  APPLIANCE
+  PEST
+  OTHER
+}
+
+enum Priority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// Where the current priority came from.
+// AI = model prediction, RULE = keyword fallback when the AI service is down,
+// LANDLORD = the landlord overrode it.
+enum PrioritySource {
+  AI
+  RULE
+  LANDLORD
+}
+
+// "Queued offline" is not stored here. It only exists on the phone
+// until the request syncs, then it arrives as SUBMITTED.
+enum RequestStatus {
+  SUBMITTED
+  ASSIGNED
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+}
+
+// ---------- Models ----------
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String   @db.VarChar(100)
+  email        String   @unique @db.VarChar(150)
+  phone        String?  @db.VarChar(20)
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+
+  properties    Property[]         @relation("LandlordProperties")
+  unit          Unit?              @relation("UnitTenant")
+  requests      MaintenanceRequest[] @relation("TenantRequests")
+  statusChanges StatusHistory[]
+  overrides     PriorityOverride[]
+}
+
+model Property {
+  id         Int      @id @default(autoincrement())
+  name       String   @db.VarChar(100)
+  location   String   @db.VarChar(150)
+  landlordId Int
+  createdAt  DateTime @default(now())
+
+  landlord User   @relation("LandlordProperties", fields: [landlordId], references: [id])
+  units    Unit[]
+
+  @@index([landlordId])
+}
+
+model Unit {
+  id         Int     @id @default(autoincrement())
+  label      String  @db.VarChar(20) // e.g. "A3" or "House 12"
+  propertyId Int
+  tenantId   Int?    @unique // one tenant per unit, null when vacant
+
+  property Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant   User?                @relation("UnitTenant", fields: [tenantId], references: [id])
+  requests MaintenanceRequest[]
+
+  @@unique([propertyId, label])
+}
+
+model MaintenanceRequest {
+  id             Int            @id @default(autoincrement())
+  // UUID made on the phone when the request is created. If the same offline
+  // request is synced twice, the unique index stops a duplicate.
+  clientId       String         @unique @db.VarChar(36)
+  title          String         @db.VarChar(120)
+  description    String         @db.Text
+  category       Category
+  locationInUnit String?        @db.VarChar(60) // e.g. "kitchen sink"
+  status         RequestStatus  @default(SUBMITTED)
+
+  aiPriority     Priority?      // what the model said (kept even after override)
+  aiConfidence   Float?
+  priority       Priority       // the priority actually used for sorting
+  prioritySource PrioritySource
+
+  tenantId   Int
+  unitId     Int
+  createdAt  DateTime  @default(now()) // when the server received it
+  reportedAt DateTime  // when the tenant pressed submit (may be earlier if offline)
+  updatedAt  DateTime  @updatedAt
+  resolvedAt DateTime?
+
+  tenant    User               @relation("TenantRequests", fields: [tenantId], references: [id])
+  unit      Unit               @relation(fields: [unitId], references: [id])
+  photos    RequestPhoto[]
+  history   StatusHistory[]
+  overrides PriorityOverride[]
+
+  @@index([unitId, status])
+  @@index([tenantId])
+}
+
+model RequestPhoto {
+  id        Int      @id @default(autoincrement())
+  requestId Int
+  url       String   @db.VarChar(500) // Cloudinary URL
+  publicId  String   @db.VarChar(200) // Cloudinary id, needed to delete the image
+  createdAt DateTime @default(now())
+
+  request MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+}
+
+// Every status change, so the tenant can see a timeline (objective 4).
+model StatusHistory {
+  id          Int            @id @default(autoincrement())
+  requestId   Int
+  fromStatus  RequestStatus?
+  toStatus    RequestStatus
+  note        String?        @db.VarChar(255)
+  changedById Int
+  createdAt   DateTime       @default(now())
+
+  request   MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  changedBy User               @relation(fields: [changedById], references: [id])
+
+  @@index([requestId])
+}
+
+// Landlord overrides of the AI priority. These become labelled
+// examples for retraining the model later.
+model PriorityOverride {
+  id           Int      @id @default(autoincrement())
+  requestId    Int
+  fromPriority Priority
+  toPriority   Priority
+  reason       String?  @db.VarChar(255)
+  changedById  Int
+  createdAt    DateTime @default(now())
+
+  request   MaintenanceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  changedBy User               @relation(fields: [changedById], references: [id])
+
+  @@index([requestId])
+}

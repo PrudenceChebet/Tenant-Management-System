@@ -1,0 +1,8 @@
+node_modules/
+.env
+dist/
+server/src/generated/
+__pycache__/
+.venv/
+*.joblib
+.DS_Store
