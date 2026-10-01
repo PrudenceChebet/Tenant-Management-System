@@ -5,7 +5,7 @@ A mobile-based distributed tenant management system with AI-assisted priority re
 | Folder | What it is | Status |
 |---|---|---|
 | `server/` | Node.js + Express API, Prisma, MySQL | Steps 1 and 2 done: database, login, maintenance request API |
-| `client/` | React + Tailwind PWA | Not started |
+| `client/` | React + Tailwind PWA | Step 3 done: tenant and landlord screens, offline reporting |
 | `ai-service/` | Python + FastAPI priority model | Not started |
 
 ## What you need installed
@@ -80,6 +80,43 @@ npm test             # priority rules and AI fallback (no database needed)
 npm run test:api     # full API test; needs the server running and fresh seed data
 npm run db:seed      # run again afterwards to reset the demo data
 ```
+
+## Step 3: the app (React PWA)
+
+You need **two terminals**: one for the API, one for the app.
+
+```bash
+# Terminal 1
+cd server
+npm run dev
+
+# Terminal 2
+cd client
+npm install        # first time only
+npm run dev
+```
+
+Open http://localhost:5173 and use the demo account buttons on the login screen.
+
+**Tenant:** report an issue (type, title, where, description), see open and closed requests, open one to see its priority and a timeline of every status change, cancel it while it is still Submitted.
+
+**Landlord:** queue sorted by priority with counts for High, Medium and Low; filters for Open, New, Closed and All; open a request to assign it, start work, resolve or cancel it (with a note for the tenant) or change its priority; manage properties, units and which tenant lives where.
+
+**Offline reporting:** if the phone has no connection, the report is saved on the phone (IndexedDB) and shown under "Not sent yet". It is sent automatically when the connection returns. Lists refresh every 30 seconds.
+
+**Testing offline and the installable app:** these need the production build, because the service worker only runs there:
+
+```bash
+cd client
+npm run build
+npm run preview    # then open http://localhost:4173
+```
+
+In Chrome, open DevTools (F12) → Network → change "No throttling" to **Offline**, then report an issue. Switch back to "No throttling" and watch it send.
+
+**On your phone:** with `npm run dev` running, the terminal shows a `Network:` address like `http://192.168.1.20:5173`. Open it on a phone on the same Wi-Fi (allow Node through the Windows firewall if asked). Installing to the home screen and offline mode need HTTPS, so they only work on the phone once the app is deployed.
+
+Screenshots of every screen are in `docs/screenshots/`.
 
 ## Database design
 

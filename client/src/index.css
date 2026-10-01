@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #eaf5f2;
+  --color-brand-100: #cfe8e1;
+  --color-brand-600: #137062;
+  --color-brand-700: #0f5c52;
+  --color-brand-800: #0b4840;
+  --color-ink: #17201e;
+  --color-muted: #5d6b67;
+  --color-line: #dfe5e3;
+  --color-ground: #f5f7f6;
+  --font-sans: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-ground);
+  color: var(--color-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Reusable pieces, so screens stay consistent.
+   Buttons: use "btn btn-primary", "btn btn-secondary" or "btn btn-danger". */
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-white;
+  }
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink;
+  }
+  .input {
+    @apply w-full rounded-xl border border-line bg-white px-3.5 py-3 text-base outline-none transition focus:border-brand-600 focus:ring-2 focus:ring-brand-100;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-base font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-brand-700 text-white hover:bg-brand-800 active:bg-brand-800;
+  }
+  .btn-secondary {
+    @apply border border-line bg-white text-ink hover:bg-ground;
+  }
+  .btn-danger {
+    @apply border border-red-200 bg-white text-red-700 hover:bg-red-50;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap;
+  }
+}
