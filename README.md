@@ -4,7 +4,7 @@ A mobile-based distributed tenant management system with AI-assisted priority re
 
 | Folder | What it is | Status |
 |---|---|---|
-| `server/` | Node.js + Express API, Prisma, MySQL | Step 1 done: database schema, seed data, health check |
+| `server/` | Node.js + Express API, Prisma, MySQL | Steps 1 and 2 done: database, login, maintenance request API |
 | `client/` | React + Tailwind PWA | Not started |
 | `ai-service/` | Python + FastAPI priority model | Not started |
 
@@ -47,6 +47,39 @@ Open http://localhost:4000/api/health. You should see:
 | Tenant (A1) | brian@tms.test |
 | Tenant (A2) | faith@tms.test |
 | Tenant (B1) | kevin@tms.test |
+
+## Step 2: login and the request API
+
+All endpoints are under `http://localhost:4000/api`. Except for register, login and health, every request needs the header `Authorization: Bearer <token>`, using the token from login.
+
+| Method | Path | Who | What it does |
+|---|---|---|---|
+| POST | `/auth/register` | anyone | Create an account (`TENANT` or `LANDLORD`) |
+| POST | `/auth/login` | anyone | Returns a token and the user |
+| GET | `/auth/me` | logged in | Your account and your unit |
+| POST | `/requests` | tenant | Report a problem. Priority is set automatically |
+| GET | `/requests` | both | Tenants see their own, landlords see their properties'. Open first, then HIGH, MEDIUM, LOW |
+| GET | `/requests/:id` | both | One request with its status timeline and overrides |
+| PATCH | `/requests/:id/status` | landlord (tenant can only cancel) | SUBMITTED, ASSIGNED, IN_PROGRESS, RESOLVED, or CANCELLED |
+| PATCH | `/requests/:id/priority` | landlord | Override the priority. Logged for retraining |
+| GET | `/properties` | landlord | Properties with their units and tenants |
+| POST | `/properties` | landlord | Add a property |
+| POST | `/properties/:id/units` | landlord | Add a unit |
+| PUT | `/units/:id/tenant` | landlord | Link a tenant to a unit by email (or `null` to make it vacant) |
+
+**How the priority is set:** the API asks the AI service (step 4). If it doesn't answer within 3 seconds, or isn't running, the API uses keyword rules instead (see `server/src/services/priority.js`) and saves `prioritySource: "RULE"`. A request is never blocked because the AI is down.
+
+### Trying it with Postman
+
+Import `docs/TMS-API.postman_collection.json` into Postman. Run **Login as tenant** and **Login as landlord** first; they save the tokens for the other requests.
+
+### Automated tests
+
+```bash
+npm test             # priority rules and AI fallback (no database needed)
+npm run test:api     # full API test; needs the server running and fresh seed data
+npm run db:seed      # run again afterwards to reset the demo data
+```
 
 ## Database design
 

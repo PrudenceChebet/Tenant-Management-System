@@ -17,6 +17,12 @@ async function main() {
   await prisma.property.deleteMany();
   await prisma.user.deleteMany();
 
+  // Restart ids at 1 so the demo data always has the same ids
+  // (the Postman collection relies on unit 4 and property 1).
+  for (const table of ["PriorityOverride", "StatusHistory", "RequestPhoto", "MaintenanceRequest", "Unit", "Property", "User"]) {
+    await prisma.$executeRawUnsafe(`ALTER TABLE \`${table}\` AUTO_INCREMENT = 1`);
+  }
+
   const passwordHash = await bcrypt.hash("Password123", 10);
 
   const landlord = await prisma.user.create({
