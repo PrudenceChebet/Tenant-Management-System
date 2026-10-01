@@ -22,4 +22,14 @@ app.get("/api/health", async (_req, res) => {
 });
 
 const port = Number(process.env.PORT) || 4000;
-app.listen(port, () => console.log(`TMS API running on http://localhost:${port}`));
+app.listen(port, (err) => {
+  if (err) {
+    if (err.code === "EADDRINUSE") {
+      console.error(`Port ${port} is already in use. The server is probably already running in another terminal.`);
+    } else {
+      console.error("Server failed to start:", err.message);
+    }
+    process.exit(1);
+  }
+  console.log(`TMS API running on http://localhost:${port}`);
+});
