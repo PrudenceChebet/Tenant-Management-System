@@ -6,7 +6,7 @@ A mobile-based distributed tenant management system with AI-assisted priority re
 |---|---|---|
 | `server/` | Node.js + Express API, Prisma, MySQL | Steps 1 and 2 done: database, login, maintenance request API |
 | `client/` | React + Tailwind PWA | Step 3 done: tenant and landlord screens, offline reporting |
-| `ai-service/` | Python + FastAPI priority model | Not started |
+| `ai-service/` | Python + FastAPI priority model | Step 4 done: trained model, /predict service, results for the report |
 
 ## What you need installed
 
@@ -67,7 +67,7 @@ All endpoints are under `http://localhost:4000/api`. Except for register, login 
 | POST | `/properties/:id/units` | landlord | Add a unit |
 | PUT | `/units/:id/tenant` | landlord | Link a tenant to a unit by email (or `null` to make it vacant) |
 
-**How the priority is set:** the API asks the AI service (step 4). If it doesn't answer within 3 seconds, or isn't running, the API uses keyword rules instead (see `server/src/services/priority.js`) and saves `prioritySource: "RULE"`. A request is never blocked because the AI is down.
+**How the priority is set:** the API asks the AI service (see `ai-service/README.md`). If it doesn't answer within 3 seconds, or isn't running, the API uses keyword rules instead (see `server/src/services/priority.js`) and saves `prioritySource: "RULE"`. A request is never blocked because the AI is down.
 
 ### Trying it with Postman
 
@@ -117,6 +117,18 @@ In Chrome, open DevTools (F12) → Network → change "No throttling" to **Offli
 **On your phone:** with `npm run dev` running, the terminal shows a `Network:` address like `http://192.168.1.20:5173`. Open it on a phone on the same Wi-Fi (allow Node through the Windows firewall if asked). Installing to the home screen and offline mode need HTTPS, so they only work on the phone once the app is deployed.
 
 Screenshots of every screen are in `docs/screenshots/`.
+
+## Step 4: the AI service
+
+See `ai-service/README.md` for setup (Python on Windows) and results. You now run **three** things, plus MySQL in XAMPP:
+
+| Terminal | Folder | Command |
+|---|---|---|
+| 1 | `server` | `npm run dev` |
+| 2 | `client` | `npm run dev` |
+| 3 | `ai-service` | `.venv\Scripts\python -m uvicorn app:app --port 8000` |
+
+The AI service is optional at run time: if it isn't running, the API falls back to keyword rules.
 
 ## Database design
 

@@ -80,12 +80,12 @@ test("register: validates input and blocks duplicate emails", async () => {
   assert.equal(dup.status, 409);
 });
 
-test("tenant creates a request; AI is not running so the keyword rule sets the priority", async () => {
+test("tenant creates a request and gets a priority (from the AI, or the keyword rule if the AI is off)", async () => {
   const { status, data } = await api("POST", "/api/requests", { token: brian, body: newRequest() });
   assert.equal(status, 201);
   assert.equal(data.request.status, "SUBMITTED");
   assert.equal(data.request.priority, "HIGH");
-  assert.equal(data.request.prioritySource, "RULE");
+  assert.ok(["AI", "RULE"].includes(data.request.prioritySource));
 });
 
 test("offline sync: sending the same clientId twice saves it once", async () => {
