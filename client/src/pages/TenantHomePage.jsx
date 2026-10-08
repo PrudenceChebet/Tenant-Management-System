@@ -55,7 +55,8 @@ export default function TenantHomePage() {
             <div key={q.clientId} className="card border-dashed px-4 py-3.5">
               <p className="font-semibold">{q.title}</p>
               <p className="mt-1 text-sm text-muted">
-                {categoryLabel(q.category)} · saved {timeAgo(q.queuedAt)}
+                {q.requestId ? "Report sent, photos waiting" : categoryLabel(q.category)}
+                {q.photos?.length ? ` · ${q.photos.length} photo${q.photos.length === 1 ? "" : "s"}` : ""} · saved {timeAgo(q.queuedAt)}
               </p>
               {q.error ? (
                 <div className="mt-2.5 space-y-2">

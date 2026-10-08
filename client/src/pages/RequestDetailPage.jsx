@@ -13,6 +13,7 @@ import {
   prioritySourceText,
 } from "../lib/format.js";
 import { Alert, PriorityChip, Spinner, StatusChip } from "../components/ui.jsx";
+import { compressImage, deletePhoto, uploadPhotos } from "../lib/photos.js";
 
 // One request: details, priority, status timeline (objective 4),
 // and the landlord's controls (objective 3).
@@ -91,6 +92,8 @@ export default function RequestDetailPage() {
         <p className="rounded-xl bg-ground p-3 text-[15px] leading-relaxed whitespace-pre-wrap">{r.description}</p>
       </div>
 
+      <Photos request={r} canEdit={!isLandlord && OPEN_STATUSES.includes(r.status)} onChanged={load} />
+
       <PriorityCard request={r} canOverride={isLandlord && OPEN_STATUSES.includes(r.status)} onChanged={load} />
 
       {isLandlord ? (
@@ -100,6 +103,77 @@ export default function RequestDetailPage() {
       )}
 
       <Timeline request={r} />
+    </div>
+  );
+}
+
+// Objective 3: photos attached by the tenant. Tap one to see it full size.
+const MAX_PER_REQUEST = 5;
+function Photos({ request: r, canEdit, onChanged }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (r.photos.length === 0 && !canEdit) return null;
+
+  async function add(e) {
+    const files = [...e.target.files].slice(0, Math.min(3, MAX_PER_REQUEST - r.photos.length));
+    e.target.value = "";
+    if (!files.length) return;
+    setBusy(true);
+    setError("");
+    try {
+      await uploadPhotos(r.id, await Promise.all(files.map(compressImage)));
+      await onChanged();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function remove(photoId) {
+    setError("");
+    try {
+      await deletePhoto(r.id, photoId);
+      await onChanged();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  return (
+    <div className="card p-4">
+      <p className="mb-3 font-semibold">Photos</p>
+      {error && (
+        <div className="mb-3">
+          <Alert>{error}</Alert>
+        </div>
+      )}
+      <div className="grid grid-cols-3 gap-2">
+        {r.photos.map((p, i) => (
+          <div key={p.id} className="relative aspect-square overflow-hidden rounded-xl bg-ground">
+            <a href={p.url} target="_blank" rel="noreferrer">
+              <img src={p.url} alt={`Photo ${i + 1} of the problem`} loading="lazy" className="size-full object-cover" />
+            </a>
+            {canEdit && (
+              <button
+                onClick={() => remove(p.id)}
+                className="absolute top-1 right-1 grid size-7 place-items-center rounded-full bg-black/60 text-white"
+                aria-label={`Delete photo ${i + 1}`}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden>
+                  <path d="M6 6l12 12M18 6 6 18" />
+                </svg>
+              </button>
+            )}
+          </div>
+        ))}
+        {canEdit && r.photos.length < MAX_PER_REQUEST && (
+          <label className="grid aspect-square cursor-pointer place-items-center rounded-xl border-2 border-dashed border-line text-xs font-medium text-muted hover:border-brand-600 hover:text-brand-700">
+            {busy ? "Uploading…" : "Add photo"}
+            <input id="add-photo" type="file" accept="image/*" multiple className="hidden" onChange={add} disabled={busy} />
+          </label>
+        )}
+      </div>
     </div>
   );
 }

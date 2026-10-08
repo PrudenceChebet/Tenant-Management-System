@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { get, set } from "idb-keyval";
 import { api } from "./api.js";
+import { uploadPhotos } from "./photos.js";
 
 const KEY = "tms.outbox";
 const listeners = new Set();
@@ -24,12 +25,17 @@ async function saveQueue(items) {
   notify(items);
 }
 
-// item = the request body plus the owner's user id
-export async function enqueue(userId, body) {
+// item = the request body plus the owner's user id and any photos (Blobs).
+// If the request itself was already saved but its photos weren't, the item
+// carries requestId, and only the photos are sent next time.
+export async function enqueue(userId, body, { photos = [], requestId = null } = {}) {
   const items = await getQueue();
-  items.push({ ...body, ownerId: userId, queuedAt: new Date().toISOString(), error: null });
+  items.push({ ...body, photos, requestId, ownerId: userId, queuedAt: new Date().toISOString(), error: null });
   await saveQueue(items);
 }
+
+const update = async (clientId, changes) =>
+  saveQueue((await getQueue()).map((i) => (i.clientId === clientId ? { ...i, ...changes } : i)));
 
 export async function discard(clientId) {
   await saveQueue((await getQueue()).filter((i) => i.clientId !== clientId));
@@ -44,15 +50,20 @@ export async function syncQueue() {
   try {
     for (const item of await getQueue()) {
       if (item.error) continue;
-      const { ownerId, queuedAt, error, ...body } = item;
+      const { ownerId, queuedAt, error, photos = [], requestId, ...body } = item;
       try {
-        await api("/requests", { method: "POST", body });
+        // 1. The report itself (skipped if it was saved on an earlier try).
+        let id = requestId;
+        if (!id) {
+          id = (await api("/requests", { method: "POST", body })).request.id;
+          await update(item.clientId, { requestId: id });
+        }
+        // 2. Its photos.
+        if (photos.length) await uploadPhotos(id, photos);
         await saveQueue((await getQueue()).filter((i) => i.clientId !== item.clientId));
       } catch (err) {
         if (err.network) break;
-        await saveQueue(
-          (await getQueue()).map((i) => (i.clientId === item.clientId ? { ...i, error: err.message } : i)),
-        );
+        await update(item.clientId, { error: err.message });
       }
     }
   } finally {

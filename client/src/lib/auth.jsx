@@ -35,7 +35,10 @@ export function AuthProvider({ children }) {
     setToken(null);
     saveUser(null);
     // Remove cached API answers so the next person on this phone can't see them.
-    if ("caches" in window) await caches.delete("api-cache").catch(() => {});
+    if ("caches" in window) {
+      await caches.delete("api-cache").catch(() => {});
+      await caches.delete("photo-cache").catch(() => {});
+    }
   }, [saveUser]);
 
   // Refresh the profile (e.g. the landlord just linked this tenant to a unit).

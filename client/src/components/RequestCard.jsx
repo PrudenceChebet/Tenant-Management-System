@@ -20,6 +20,7 @@ export default function RequestCard({ request: r, showTenant = false }) {
         {categoryLabel(r.category)}
         {r.locationInUnit ? ` · ${r.locationInUnit}` : ""}
         {showTenant && r.unit ? ` · ${r.unit.label}, ${r.tenant?.name}` : ""}
+        {r.photoCount ? ` · ${r.photoCount} photo${r.photoCount === 1 ? "" : "s"}` : ""}
       </p>
       <div className="mt-2.5 flex items-center justify-between gap-2">
         <StatusChip status={r.status} />

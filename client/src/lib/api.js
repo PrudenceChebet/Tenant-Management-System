@@ -32,20 +32,23 @@ export const setToken = (token) => {
 
 export async function api(path, { method = "GET", body } = {}) {
   const token = getToken();
+  // Photos are sent as a form (FormData); everything else as JSON.
+  const isForm = body instanceof FormData;
   let res;
   try {
     res = await fetch(`/api${path}`, {
       method,
       headers: {
-        ...(body ? { "Content-Type": "application/json" } : {}),
+        ...(body && !isForm ? { "Content-Type": "application/json" } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: body ? JSON.stringify(body) : undefined,
+      body: body ? (isForm ? body : JSON.stringify(body)) : undefined,
     });
   } catch {
     throw new ApiError("You're offline or the server can't be reached.", { network: true });
   }
 
+  if (res.status === 204) return null;
   const data = await res.json().catch(() => null);
 
   if (!res.ok) {

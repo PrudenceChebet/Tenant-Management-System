@@ -66,6 +66,8 @@ All endpoints are under `http://localhost:4000/api`. Except for register, login 
 | POST | `/properties` | landlord | Add a property |
 | POST | `/properties/:id/units` | landlord | Add a unit |
 | PUT | `/units/:id/tenant` | landlord | Link a tenant to a unit by email (or `null` to make it vacant) |
+| POST | `/requests/:id/photos` | tenant (own request) | Attach up to 3 photos at once, 5 per request (form field `photos`, JPG/PNG/WebP, 5 MB each) |
+| DELETE | `/requests/:id/photos/:photoId` | tenant (own request) | Remove a photo |
 
 **How the priority is set:** the API asks the AI service (see `ai-service/README.md`). If it doesn't answer within 3 seconds, or isn't running, the API uses keyword rules instead (see `server/src/services/priority.js`) and saves `prioritySource: "RULE"`. A request is never blocked because the AI is down.
 
@@ -129,6 +131,19 @@ See `ai-service/README.md` for setup (Python on Windows) and results. You now ru
 | 3 | `ai-service` | `.venv\Scripts\python -m uvicorn app:app --port 8000` |
 
 The AI service is optional at run time: if it isn't running, the API falls back to keyword rules.
+
+## Photos (objective 3)
+
+Tenants can add up to 3 photos when reporting, and more later from the request page (5 in total). The app shrinks each photo to at most 1600 px before sending it, which usually makes it 10 times smaller, saving mobile data. Photos taken offline are kept on the phone with the report and sent together when the connection returns.
+
+**Where photos are stored:**
+
+- With `CLOUDINARY_URL` in `server/.env`: on Cloudinary (free cloud image hosting). This is what you want once the app is online.
+- Without it: in `server/uploads` on your laptop. Fine for testing.
+
+The server prints which one it is using when it starts.
+
+**Setting up Cloudinary:** log in at cloudinary.com, open the **Dashboard** (or **Settings → API Keys**), and copy the **API environment variable**. It looks like `cloudinary://123456789012345:abcDEF...@your-cloud-name`. Add it to `server/.env` as `CLOUDINARY_URL="..."` and restart the server. Never put this value in GitHub or share it: it works like a password.
 
 ## Database design
 

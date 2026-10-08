@@ -3,6 +3,8 @@ import { Navigate, useNavigate } from "react-router";
 import { useAuth } from "../lib/auth.jsx";
 import { api, fieldErrors, newId } from "../lib/api.js";
 import { enqueue } from "../lib/offlineQueue.js";
+import { MAX_PHOTOS, uploadPhotos } from "../lib/photos.js";
+import PhotoPicker from "../components/PhotoPicker.jsx";
 import { CATEGORIES, PRIORITY, prioritySourceText } from "../lib/format.js";
 import { Alert, Field } from "../components/ui.jsx";
 
@@ -12,6 +14,7 @@ export default function NewRequestPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({ category: "", title: "", locationInUnit: "", description: "" });
+  const [photos, setPhotos] = useState([]);
   const [errors, setErrors] = useState({});
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,7 +43,7 @@ export default function NewRequestPage() {
     };
 
     const saveOffline = async () => {
-      await enqueue(user.id, body);
+      await enqueue(user.id, body, { photos });
       navigate("/", {
         state: { flash: { kind: "info", text: "You're offline, so your report is saved on this phone. It will be sent automatically when you're back online." } },
       });
@@ -51,8 +54,29 @@ export default function NewRequestPage() {
     try {
       const { request } = await api("/requests", { method: "POST", body });
       const p = PRIORITY[request.priority].label.toLowerCase();
+      let photoNote = "";
+      let photoFailed = false;
+      if (photos.length) {
+        try {
+          await uploadPhotos(request.id, photos);
+        } catch (err) {
+          if (err.network) {
+            // The report is saved; keep the photos on the phone and send them later.
+            await enqueue(user.id, body, { photos, requestId: request.id });
+            photoNote = " The photos will be sent when the connection is back.";
+          } else {
+            photoFailed = true;
+            photoNote = ` The photos couldn't be added: ${err.message}`;
+          }
+        }
+      }
       navigate(`/requests/${request.id}`, {
-        state: { flash: { kind: "success", text: `Report sent. Priority: ${p}. ${prioritySourceText(request)}.` } },
+        state: {
+          flash: {
+            kind: photoFailed ? "error" : "success",
+            text: `Report sent. Priority: ${p}. ${prioritySourceText(request)}.${photoNote}`,
+          },
+        },
       });
     } catch (err) {
       if (err.network) return saveOffline();
@@ -102,6 +126,10 @@ export default function NewRequestPage() {
         hint="What happened, since when, and is it getting worse? More detail helps get the right priority."
       >
         <textarea id="description" className="input min-h-32" maxLength={2000} value={form.description} onChange={update("description")} required />
+      </Field>
+
+      <Field label={`Photos (optional, up to ${MAX_PHOTOS})`} hint="A clear photo helps the landlord see the problem and send the right person.">
+        <PhotoPicker photos={photos} onChange={setPhotos} max={MAX_PHOTOS} />
       </Field>
 
       <button className="btn btn-primary w-full" disabled={busy}>

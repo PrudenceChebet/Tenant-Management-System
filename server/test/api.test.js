@@ -199,3 +199,71 @@ test("new tenant: blocked until the landlord links them to a unit", async () => 
 test("unknown endpoints return 404", async () => {
   assert.equal((await api("GET", "/api/nothing-here")).status, 404);
 });
+
+// ---------- photos (objective 3) ----------
+
+// A real 1x1 pixel PNG, so the upload is a valid image.
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
+
+async function uploadPhotos(token, requestId, files) {
+  const form = new FormData();
+  for (const f of files) form.append("photos", new Blob([f.data], { type: f.type }), f.name);
+  const res = await fetch(`${BASE}/api/requests/${requestId}/photos`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  return { status: res.status, data: await res.json().catch(() => null) };
+}
+
+test("photos: tenant attaches photos and they show on the request", async () => {
+  const { data } = await api("POST", "/api/requests", { token: brian, body: newRequest({ title: "Leak with photo" }) });
+  const id = data.request.id;
+
+  const up = await uploadPhotos(brian, id, [
+    { data: PNG, type: "image/png", name: "leak1.png" },
+    { data: PNG, type: "image/png", name: "leak2.png" },
+  ]);
+  assert.equal(up.status, 201);
+  assert.equal(up.data.photos.length, 2);
+
+  // The photo file can be downloaded.
+  const url = up.data.photos[0].url;
+  const img = await fetch(url.startsWith("http") ? url : BASE + url);
+  assert.equal(img.status, 200);
+
+  const detail = await api("GET", `/api/requests/${id}`, { token: landlord });
+  assert.equal(detail.data.request.photos.length, 2);
+  assert.equal(detail.data.request.photoCount, 2);
+
+  // Tenant removes one.
+  const del = await fetch(`${BASE}/api/requests/${id}/photos/${up.data.photos[0].id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${brian}` },
+  });
+  assert.equal(del.status, 204);
+  assert.equal((await api("GET", `/api/requests/${id}`, { token: brian })).data.request.photos.length, 1);
+});
+
+test("photos: wrong file types, too many photos and other people's requests are rejected", async () => {
+  const { data } = await api("POST", "/api/requests", { token: brian, body: newRequest({ title: "Photo limits" }) });
+  const id = data.request.id;
+
+  const text = await uploadPhotos(brian, id, [{ data: Buffer.from("hello"), type: "text/plain", name: "note.txt" }]);
+  assert.equal(text.status, 400);
+
+  const four = await uploadPhotos(brian, id, Array.from({ length: 4 }, (_, i) => ({ data: PNG, type: "image/png", name: `p${i}.png` })));
+  assert.equal(four.status, 400);
+
+  assert.equal((await uploadPhotos(faith, id, [{ data: PNG, type: "image/png", name: "x.png" }])).status, 404);
+  assert.equal((await uploadPhotos(landlord, id, [{ data: PNG, type: "image/png", name: "x.png" }])).status, 403);
+
+  // 5 photos is the maximum per request.
+  await uploadPhotos(brian, id, Array.from({ length: 3 }, (_, i) => ({ data: PNG, type: "image/png", name: `a${i}.png` })));
+  await uploadPhotos(brian, id, Array.from({ length: 2 }, (_, i) => ({ data: PNG, type: "image/png", name: `b${i}.png` })));
+  const sixth = await uploadPhotos(brian, id, [{ data: PNG, type: "image/png", name: "c.png" }]);
+  assert.equal(sixth.status, 400);
+});

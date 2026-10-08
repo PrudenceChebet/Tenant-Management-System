@@ -5,7 +5,8 @@ import { VitePWA } from "vite-plugin-pwa";
 
 // The API runs on port 4000. In development, Vite forwards every /api call
 // there, so the app and the API look like one site (no CORS problems).
-const apiProxy = { "/api": "http://localhost:4000" };
+// Photos saved on the laptop (when Cloudinary isn't set up) are served from /uploads.
+const apiProxy = { "/api": "http://localhost:4000", "/uploads": "http://localhost:4000" };
 
 export default defineConfig({
   plugins: [
@@ -31,9 +32,15 @@ export default defineConfig({
       workbox: {
         // Opening any page while offline loads the app shell from the cache.
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/uploads\//],
         // Keep the last copy of the request lists, so they still show offline.
         runtimeCaching: [
+          {
+            // Request photos: keep a copy so they still show offline.
+            urlPattern: ({ request }) => request.destination === "image",
+            handler: "CacheFirst",
+            options: { cacheName: "photo-cache", expiration: { maxEntries: 200, maxAgeSeconds: 30 * 24 * 3600 } },
+          },
           {
             urlPattern: ({ url, request }) =>
               url.pathname.startsWith("/api/") && request.method === "GET" && url.pathname !== "/api/health",
