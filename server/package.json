@@ -11,7 +11,9 @@
     "db:seed": "node prisma/seed.js",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
-    "test:api": "node --test test/api.test.js"
+    "test:api": "node --test test/api.test.js",
+    "start:prod": "node prisma/setup-db.js && node src/index.js",
+    "db:setup": "node prisma/setup-db.js"
   },
   "keywords": [],
   "author": "",

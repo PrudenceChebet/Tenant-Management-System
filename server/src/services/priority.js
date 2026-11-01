@@ -40,11 +40,30 @@ export function rulePriority({ title, description, category }) {
   return CATEGORY_DEFAULT[category] ?? "LOW";
 }
 
+// AI_SERVICE_URL may be given with or without https:// and a trailing slash.
+function aiBase() {
+  const raw = (process.env.AI_SERVICE_URL || "").trim().replace(/\/+$/, "");
+  if (!raw) return null;
+  return /^https?:\/\//.test(raw) ? raw : `https://${raw}`;
+}
+
+// Free hosting puts the AI service to sleep after 15 minutes without visitors,
+// and waking it takes about a minute. The API pings it when the API starts and
+// every 10 minutes while the API is awake, so it is usually ready in time.
+// (If it is still waking up, the 3-second limit below falls back to the rules.)
+export function startAiWarmup() {
+  const base = aiBase();
+  if (!base) return;
+  const ping = () => fetch(`${base}/health`, { signal: AbortSignal.timeout(90_000) }).catch(() => {});
+  ping();
+  setInterval(ping, 10 * 60 * 1000).unref();
+}
+
 async function askAiService(request) {
-  const base = process.env.AI_SERVICE_URL;
+  const base = aiBase();
   if (!base) return null;
 
-  const res = await fetch(`${base.replace(/\/$/, "")}/predict`, {
+  const res = await fetch(`${base}/predict`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

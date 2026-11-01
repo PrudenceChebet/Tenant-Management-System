@@ -8,6 +8,10 @@ A mobile-based distributed tenant management system with AI-assisted priority re
 | `client/` | React + Tailwind PWA | Step 3 done: tenant and landlord screens, offline reporting |
 | `ai-service/` | Python + FastAPI priority model | Step 4 done: trained model, /predict service, results for the report |
 
+## Putting it online
+
+See **[DEPLOY.md](DEPLOY.md)**: Aiven (database), Render (AI service, and app + API on one address) and Cloudinary (photos), all on free plans.
+
 ## What you need installed
 
 - **Node.js 22.18 or newer** (the current LTS is fine): https://nodejs.org
